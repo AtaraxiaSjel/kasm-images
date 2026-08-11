@@ -40,7 +40,7 @@ jobs:
           if [ -n "${{ inputs.base_tag }}" ]; then
             echo "base_tag=${{ inputs.base_tag }}" >> "$GITHUB_OUTPUT"
           else
-            TAG=$(bash custom-zen-images/scripts/detect-latest-core-tag.sh)
+            TAG=$(bash scripts/detect-latest-core-tag.sh)
             echo "base_tag=$TAG" >> "$GITHUB_OUTPUT"
           fi
 
@@ -72,8 +72,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: custom-zen-images
-          file: custom-zen-images/dockerfile-kasm-${{ matrix.image }}
+          context: .
+          file: dockerfile-kasm-${{ matrix.image }}
           push: true
           platforms: linux/amd64
           build-args: |
@@ -90,4 +90,4 @@ jobs:
           OWNER=${{ env.OWNER }} \
           REGISTRY=${{ env.REGISTRY }} \
           SMOKE_TAG=rolling-weekly \
-          bash custom-zen-images/scripts/smoke-test.sh ${{ matrix.image }}
+          bash scripts/smoke-test.sh ${{ matrix.image }}
