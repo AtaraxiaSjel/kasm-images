@@ -2,6 +2,8 @@
 
 Custom [Kasm Workspaces](https://kasmweb.com) images that run the [Zen Browser](https://zen-browser.app) as a single-application desktop.
 
+Russian version: [README.ru.md](README.ru.md)
+
 ## Images
 
 - `kasm-zen` — Zen Browser with uBlock Origin and Dark Reader preinstalled, dark GTK/xfwm4 theme, DuckDuckGo as the default search engine.
