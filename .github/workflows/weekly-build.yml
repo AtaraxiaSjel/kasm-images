@@ -1,0 +1,93 @@
+name: Weekly Kasm Zen Build
+
+on:
+  schedule:
+    - cron: '0 4 * * 2'
+  workflow_dispatch:
+    inputs:
+      base_tag:
+        description: 'Override base core tag (e.g. 1.19.0-rolling-weekly). Leave empty to auto-detect latest.'
+        required: false
+        type: string
+        default: ''
+      run_smoke:
+        description: 'Run smoke test after build'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: ${{ github.repository_owner }}
+  BASE_IMAGE: core-ubuntu-jammy
+
+jobs:
+  detect-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      base_tag: ${{ steps.detect.outputs.base_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        name: Detect latest core tag
+        run: |
+          if [ -n "${{ inputs.base_tag }}" ]; then
+            echo "base_tag=${{ inputs.base_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG=$(bash custom-zen-images/scripts/detect-latest-core-tag.sh)
+            echo "base_tag=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: detect-tag
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [zen, zen-mintcifra]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - id: date
+        name: Set date tag
+        run: echo "date_tag=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: custom-zen-images
+          file: custom-zen-images/dockerfile-kasm-${{ matrix.image }}
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            BASE_TAG=${{ needs.detect-tag.outputs.base_tag }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/kasm-${{ matrix.image }}:rolling-weekly
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/kasm-${{ matrix.image }}:${{ needs.detect-tag.outputs.base_tag }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/kasm-${{ matrix.image }}:${{ steps.date.outputs.date_tag }}
+
+      - name: Smoke test
+        if: ${{ inputs.run_smoke != false }}
+        run: |
+          OWNER=${{ env.OWNER }} \
+          REGISTRY=${{ env.REGISTRY }} \
+          SMOKE_TAG=rolling-weekly \
+          bash custom-zen-images/scripts/smoke-test.sh ${{ matrix.image }}
