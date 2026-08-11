@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
+# Kasm startup script for Zen Browser. Keeps the browser alive (auto-restarts
+# if it exits), maximizes the window and honors a KASM_URL / LAUNCH_URL to
+# open a specific page on first start. Mirrors the base-image convention so
+# Kasm's "go/assign" exec mode also works when launching URLs post-startup.
 set -ex
 START_COMMAND="/opt/zen/zen"
 PGREP="zen-bin"
 PGREP_ALT="zen"
+# Kasm's maximize_window.sh targets a window title; must match the browser's
 export MAXIMIZE="true"
 export MAXIMIZE_NAME="Zen"
 MAXIMIZE_SCRIPT=$STARTUPDIR/maximize_window.sh
 DEFAULT_ARGS=""
 ARGS=${APP_ARGS:-$DEFAULT_ARGS}
 
+# Standard Kasm single-app option parsing: -g/--go, -a/--assign, -u/--url
 options=$(getopt -o gau: -l go,assign,url: -n "$0" -- "$@") || exit
 eval set -- "$options"
 
@@ -29,11 +35,12 @@ done
 
 FORCE=$2
 
-# run with vgl if GPU is available
+# run with vgl if GPU is available (Kasm's VirtualGL passthrough)
 if [ -f /opt/VirtualGL/bin/vglrun ] && [ ! -z "${KASM_EGL_CARD}" ] && [ ! -z "${KASM_RENDERD}" ] && [ -O "${KASM_RENDERD}" ] && [ -O "${KASM_EGL_CARD}" ] ; then
     START_COMMAND="/opt/VirtualGL/bin/vglrun -d ${KASM_EGL_CARD} $START_COMMAND"
 fi
 
+# Launch a URL into the already-running browser (Kasm "go" / "assign" mode)
 kasm_exec() {
     if [ -n "$OPT_URL" ] ; then
         URL=$OPT_URL
@@ -53,6 +60,7 @@ kasm_exec() {
     fi
 }
 
+# Main container startup path: keep the browser running forever
 kasm_startup() {
     if [ -n "$KASM_URL" ] ; then
         URL=$KASM_URL
@@ -64,6 +72,7 @@ kasm_startup() {
 
         echo "Entering process startup loop"
         set +x
+        # Restart the browser whenever it dies so the session is never empty
         while true
         do
             if ! pgrep -x $PGREP > /dev/null && ! pgrep -x $PGREP_ALT > /dev/null

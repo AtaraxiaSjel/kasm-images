@@ -1,5 +1,8 @@
 #!/bin/bash
-
+# Restricts the GTK file chooser so container users cannot reach host paths.
+# Kept for compatibility with the Kasm "restricted file chooser" hardening
+# pattern: on jammy/noble removing xdg-open is enough, on older bases the
+# patched libgtk package is installed instead.
 set -e
 
 # Just remove xdg-open for Jammy and Noble

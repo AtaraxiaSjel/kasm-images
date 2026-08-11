@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
+# Trusts the Russian Government (Mintifra) root and sub CAs system-wide.
+# Installs into the system store (openssl) and into every NSS cert9.db so
+# Chrome/Firefox-family browsers honor them. Used by dockerfile-kasm-zen-mintcifra.
 set -ex
 
 CERT_DIR="${INST_SCRIPTS}/certificates"
 
+# certutil/update-ca-certificates are needed for the NSS/system store import
 apt-get update
 apt-get install -y libnss3-tools p11-kit-modules
 

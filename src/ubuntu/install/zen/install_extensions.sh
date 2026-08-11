@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
+# Preinstalls uBlock Origin and Dark Reader as policy-managed extensions.
+# Extensions placed in distribution/extensions are auto-installed on every
+# launch and cannot be removed by the user.
 set -ex
 
 ZEN_BASE=/opt/zen
+# Managed extensions live next to policies.json so they ship with the image
 EXTENSION_DIR=${ZEN_BASE}/distribution/extensions
 mkdir -p "$EXTENSION_DIR"
 
@@ -19,6 +23,7 @@ curl -sL "$DR_FILE" -o "${EXTENSION_DIR}/${DR_GUID}.xpi"
 
 chown -R root:root "$EXTENSION_DIR"
 
+# Run headless once so the managed extensions get registered in the profile
 ZEN_BIN=/opt/zen/zen
 ZEN_PROFILE_BASE="$HOME/.config/zen"
 ZEN_PROFILE_PATH="$ZEN_PROFILE_BASE/kasm"
@@ -27,10 +32,12 @@ mkdir -p "$ZEN_PROFILE_PATH"
 
 /bin/bash -c "HOME=$HOME '$ZEN_BIN' --headless </dev/null >/dev/null 2>&1 &"
 ZEN_PID=$!
+# Give the browser time to download and install the extensions
 sleep 12
 kill $ZEN_PID 2>/dev/null || true
 pkill -x zen 2>/dev/null || true
 
+# Ensure a clean first launch even after the extension install run
 rm -f "$ZEN_PROFILE_PATH/sessionstore.jsonlz4" \
       "$ZEN_PROFILE_PATH/sessionstore-backups/recovery.jsonlz4" \
       "$ZEN_PROFILE_PATH/sessionstore-backups/recovery.baklz4" \

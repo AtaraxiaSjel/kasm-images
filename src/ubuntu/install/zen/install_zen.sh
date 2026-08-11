@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Downloads the latest Zen Browser release, installs it to /opt/zen and
+# prepares a locked "kasm" profile (default search engine, prefs, no wizard).
 set -ex
 
 ARCH=$(arch)
@@ -9,6 +11,7 @@ esac
 
 echo "Install Zen Browser"
 
+# Download the latest release tarball from GitHub
 ZEN_TARBALL="zen.linux-${ARCH}.tar.xz"
 
 curl -sL \
@@ -26,10 +29,12 @@ if [ ! -x "$ZEN_BIN" ]; then
   exit 1
 fi
 
+# Use the system PKCS#11 trust module so system CAs are honored by the browser
 ln -sf /usr/lib/$(arch)-linux-gnu/pkcs11/p11-kit-trust.so $ZEN_DIR/libnssckbi.so
 
 chown -R root:root $ZEN_DIR
 
+# Fix the desktop entry copied by the base image to point at the Zen binary/icon
 touch $HOME/Desktop/zen.desktop
 sed -i \
   -e 's!Name=.*!Name=Zen Browser!' \
@@ -42,6 +47,8 @@ chmod +x $HOME/Desktop/zen.desktop
 mkdir -p /usr/share/icons
 cp $ZEN_DIR/browser/chrome/icons/default/default128.png /usr/share/icons/zen.png 2>/dev/null || true
 
+# Pre-create the "kasm" profile so it is picked as default instead of the
+# auto-generated one on first launch
 ZEN_PROFILE_BASE="$HOME/.config/zen"
 ZEN_PROFILE_PATH="$ZEN_PROFILE_BASE/kasm"
 ZEN_PROFILES_INI="$ZEN_PROFILE_BASE/profiles.ini"
@@ -52,8 +59,10 @@ chown -R 0:0 "$HOME/.config" 2>/dev/null || chown -R 0:0 "$HOME"
 
 "$ZEN_BIN" --headless -CreateProfile "kasm $ZEN_PROFILE_PATH" 2>/dev/null || true
 
+# Create the profile section and lock it as default
 mkdir -p "$ZEN_PROFILE_PATH"
 
+# Run headless once so profiles.ini is generated and persisted
 /bin/bash -c "HOME=$HOME '$ZEN_BIN' --headless </dev/null >/dev/null 2>&1 &"
 ZEN_PID=$!
 for i in $(seq 1 60); do
@@ -85,6 +94,7 @@ EOL
   fi
 fi
 
+# Persist the frozen first-run prefs; they ship with the image
 echo 'user_pref("security.sandbox.warn_unprivileged_namespaces", false);' > "$ZEN_PROFILE_PATH/user.js"
 echo 'user_pref("browser.aboutwelcome.enabled", false);' >> "$ZEN_PROFILE_PATH/user.js"
 echo 'user_pref("zen.welcome-screen.seen", true);' >> "$ZEN_PROFILE_PATH/user.js"
@@ -97,11 +107,13 @@ echo 'user_pref("startup.homepage_welcome_url", "about:blank");' >> "$ZEN_PROFIL
 echo 'user_pref("browser.shell.checkDefaultBrowser", false);' >> "$ZEN_PROFILE_PATH/user.js"
 echo 'user_pref("startup.homepage_welcome_url.additional", "");' >> "$ZEN_PROFILE_PATH/user.js"
 
+# Drop any leftover session state so the browser always opens blank
 rm -f "$ZEN_PROFILE_PATH/sessionstore.jsonlz4" \
       "$ZEN_PROFILE_PATH/sessionstore-backups/recovery.jsonlz4" \
       "$ZEN_PROFILE_PATH/sessionstore-backups/recovery.baklz4" \
       "$ZEN_PROFILE_PATH/sessionstore-backups/previous.jsonlz4" 2>/dev/null || true
 
+# Lock DuckDuckGo as the default search engine via enterprise policy
 mkdir -p $ZEN_DIR/distribution
 cat > $ZEN_DIR/distribution/policies.json <<EOL
 {

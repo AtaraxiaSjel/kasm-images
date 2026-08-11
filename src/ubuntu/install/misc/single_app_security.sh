@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Hardens a single-application Kasm desktop: removes terminals so users cannot
+# break out of the browser into a shell.
+# Usage: single_app_security.sh [-t]
+#   -t  Remove terminal emulators
 
 REMOVE_TERMINALS=false
 

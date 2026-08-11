@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Runs a kasm-zen image and verifies it works: KasmVNC must answer its health
+# endpoint and the Zen browser process must be alive. Tears the container down
+# afterwards.
+# Usage: OWNER=myghuser [SMOKE_TAG=rolling-weekly] [SMOKE_PORT=6901] scripts/smoke-test.sh [zen|zen-mintcifra]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,6 +23,7 @@ FULL_IMAGE="${REGISTRY}/${OWNER}/kasm-${IMAGE}:${TAG}"
 CONTAINER="kasm-smoke-${IMAGE}"
 HEALTH_URL="https://127.0.0.1:${PORT}/api/__healthcheck"
 
+# Remove the container whether the test passes or fails
 cleanup() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 }
@@ -56,6 +61,7 @@ fi
 echo "Verifying Zen browser process is running..."
 ZEN_RUNNING=false
 for i in $(seq 1 30); do
+  # Either process name variant proves the custom_startup loop is working
   if docker exec "$CONTAINER" pgrep -x zen >/dev/null 2>&1 || \
      docker exec "$CONTAINER" pgrep -x zen-bin >/dev/null 2>&1; then
     ZEN_RUNNING=true
